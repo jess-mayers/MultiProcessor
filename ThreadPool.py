@@ -2,7 +2,7 @@ import os
 import uuid
 import traceback
 import threading
-from queue import Queue
+from queue import Queue, Empty
 from typing import Callable, List
 from exceptions import AlreadyTerminatedException, ThreadException
 
@@ -27,6 +27,8 @@ class ThreadPool:
         if start:
             self.start()
         # task handling
+        self.submitted_one_job = False
+        self.finished_one_job = False
         self.still_submitting = True
         self.input_queue = Queue()
         self.output_queue = Queue()
@@ -44,10 +46,11 @@ class ThreadPool:
     def done_submitting_tasks(self):
         self.still_submitting = False
 
-    def submit_task(self, fn: Callable, *args, **kwargs):
+    def submit(self, fn: Callable, *args, **kwargs):
         task_id = uuid.uuid4()
         task = PoolTask(task_id=task_id, fn=fn, *args, **kwargs)
         self.input_queue.put(task)
+        self.submitted_one_job = True
 
     def __thread_worker(self):
         # thread code
@@ -60,7 +63,7 @@ class ThreadPool:
             # get next item in queue
             try:
                 task = self.input_queue.get(timeout=10)
-            except TimeoutError:
+            except Empty:
                 # no task appeared in 10 seconds check to ensure system is fully running
                 continue
             # process results
@@ -72,6 +75,7 @@ class ThreadPool:
                 self.output_queue.put(ThreadException(traceback.format_exc()))
             # mark task as done
             self.input_queue.task_done()
+            self.finished_one_job = True
 
     def terminate(self, force: bool = False):
         if self.__terminated:
@@ -82,11 +86,15 @@ class ThreadPool:
         self.__terminated = True
 
     def get_results(self, timeout: int = 10, raise_thread_errors: bool = True):
-        while not self.input_queue.empty() or not self.output_queue.empty() or self.still_submitting:
+        assert self.submitted_one_job, 'A job needs to be submitted'
+        # TODO fix condition to get results
+        while not self.finished_one_job or self.still_submitting or not self.input_queue.all_tasks_done or self.output_queue.not_empty:
             try:
                 result = self.output_queue.get(timeout=timeout)
+                self.output_queue.task_done()
                 if raise_thread_errors and isinstance(result, ThreadException):
                     raise result
                 yield result
-            except TimeoutError:
+            except Empty:
                 continue
+        self.terminate()
