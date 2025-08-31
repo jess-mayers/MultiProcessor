@@ -30,6 +30,8 @@ class ThreadPool:
         self.still_submitting = True
         self.input_queue = Queue()
         self.output_queue = Queue()
+        self.__tasks_submitted = 0
+        self.__tasks_completed = 0
 
         # create thread pool
         self.pool : List[threading.Thread] = []
@@ -48,6 +50,7 @@ class ThreadPool:
         task_id = uuid.uuid4()
         task = PoolTask(task_id=task_id, fn=fn, *args, **kwargs)
         self.input_queue.put_nowait(task)
+        self.__tasks_submitted += 1
 
     def __thread_worker(self):
         # thread code
@@ -79,13 +82,13 @@ class ThreadPool:
         self.__terminated = True
 
     def get_results(self, timeout: int = 10, raise_thread_errors: bool = True):
-        # TODO fix condition to get results
-        while self.still_submitting or not self.input_queue.all_tasks_done or not self.input_queue.empty():
+        while self.still_submitting or self.__tasks_submitted > self.__tasks_completed:
             try:
                 result = self.output_queue.get(timeout=timeout)
                 self.output_queue.task_done()
                 if raise_thread_errors and isinstance(result, ThreadException):
                     raise result
                 yield result
+                self.__tasks_completed += 1
             except Empty:
                 continue
