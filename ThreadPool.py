@@ -81,5 +81,12 @@ class ThreadPool:
             pass
         self.__terminated = True
 
-
-
+    def get_results(self, timeout: int = 10, raise_thread_errors: bool = True):
+        while not self.input_queue.empty() or self.still_submitting:
+            try:
+                result = self.output_queue.get(timeout=timeout)
+                if raise_thread_errors and isinstance(result, ThreadException):
+                    raise result
+                yield result
+            except TimeoutError:
+                continue
