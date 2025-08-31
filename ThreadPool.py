@@ -27,8 +27,6 @@ class ThreadPool:
         if start:
             self.start()
         # task handling
-        self.submitted_one_job = False
-        self.finished_one_job = False
         self.still_submitting = True
         self.input_queue = Queue()
         self.output_queue = Queue()
@@ -49,15 +47,11 @@ class ThreadPool:
     def submit(self, fn: Callable, *args, **kwargs):
         task_id = uuid.uuid4()
         task = PoolTask(task_id=task_id, fn=fn, *args, **kwargs)
-        self.input_queue.put(task)
-        self.submitted_one_job = True
+        self.input_queue.put_nowait(task)
 
     def __thread_worker(self):
         # thread code
-        while not self.input_queue.empty() or self.still_submitting:
-            if self.__terminated:
-                # end process
-                return
+        while not self.__terminated:
             # wait for start
             self.__start_event.wait()
             # get next item in queue
@@ -75,7 +69,6 @@ class ThreadPool:
                 self.output_queue.put(ThreadException(traceback.format_exc()))
             # mark task as done
             self.input_queue.task_done()
-            self.finished_one_job = True
 
     def terminate(self, force: bool = False):
         if self.__terminated:
@@ -86,9 +79,8 @@ class ThreadPool:
         self.__terminated = True
 
     def get_results(self, timeout: int = 10, raise_thread_errors: bool = True):
-        assert self.submitted_one_job, 'A job needs to be submitted'
         # TODO fix condition to get results
-        while not self.finished_one_job or self.still_submitting or not self.input_queue.all_tasks_done or self.output_queue.not_empty:
+        while self.still_submitting or not self.input_queue.all_tasks_done or not self.input_queue.empty():
             try:
                 result = self.output_queue.get(timeout=timeout)
                 self.output_queue.task_done()
@@ -97,4 +89,3 @@ class ThreadPool:
                 yield result
             except Empty:
                 continue
-        self.terminate()
