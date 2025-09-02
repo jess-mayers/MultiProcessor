@@ -73,12 +73,9 @@ class ThreadPool:
             # mark task as done
             self.input_queue.task_done()
 
-    def terminate(self, force: bool = False):
+    def terminate(self):
         if self.__terminated:
             raise AlreadyTerminatedException('Cannot terminate a threadpool that is already terminated')
-        if force:
-            # todo force end all threads
-            pass
         self.__terminated = True
 
     def get_results(self, timeout: int = 10, raise_thread_errors: bool = True):
