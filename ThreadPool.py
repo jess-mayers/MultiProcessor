@@ -6,16 +6,6 @@ from queue import Queue, Empty
 from typing import Callable, List
 from exceptions import AlreadyTerminatedException, ThreadException
 
-class PoolTask:
-    def __init__(self, task_id: uuid.UUID, fn: Callable, *args, **kwargs):
-        self.task_id = task_id
-        self.fn = fn
-        self.args = args
-        self.kwargs = kwargs
-
-    def execute(self):
-        return self.fn(*self.args, **self.kwargs)
-
 class WorkerThread(threading.Thread):
     def __init__(self, target: Callable, auto_start: bool = True, *args, **kwargs):
         super().__init__(target=target, daemon=True, *args, **kwargs)
@@ -28,6 +18,16 @@ class WorkerThread(threading.Thread):
         return self._stop_event.is_set()
 
 class ThreadPool:
+    class Job:
+        def __init__(self, task_id: uuid.UUID, fn: Callable, *args, **kwargs):
+            self.task_id = task_id
+            self.fn = fn
+            self.args = args
+            self.kwargs = kwargs
+
+        def execute(self):
+            return self.fn(*self.args, **self.kwargs)
+
     def __init__(self, max_workers: int = os.cpu_count()):
         # config
         assert max_workers and max_workers > 0, 'max_workers must be greater than 0'
@@ -52,8 +52,7 @@ class ThreadPool:
         self.still_submitting = False
 
     def submit(self, fn: Callable, *args, **kwargs):
-        task_id = uuid.uuid4()
-        task = PoolTask(task_id=task_id, fn=fn, *args, **kwargs)
+        task = self.Job(fn=fn, *args, **kwargs)
         self.input_queue.put_nowait(task)
         self.__tasks_submitted += 1
 
