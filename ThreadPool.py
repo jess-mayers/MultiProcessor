@@ -16,32 +16,35 @@ class PoolTask:
     def execute(self):
         return self.fn(*self.args, **self.kwargs)
 
+class WorkerThread(threading.Thread):
+    def __init__(self, target: Callable, auto_start: bool = True, *args, **kwargs):
+        super().__init__(target=target, daemon=True, *args, **kwargs)
+        self._stop_event = threading.Event()
+        if auto_start:
+            self.start()
+    def stop(self):
+        self._stop_event.set()
+    def is_stopped(self):
+        return self._stop_event.is_set()
+
 class ThreadPool:
     def __init__(self, max_workers: int = os.cpu_count(), start: bool = False):
         # config
         assert max_workers and max_workers > 0, 'max_workers must be greater than 0'
-        # events
-        self.__start_event = threading.Event()
         # run states
         self.__terminated = False
-        if start:
-            self.start()
         # task handling
         self.still_submitting = True
+        self.still_processing = True
         self.input_queue = Queue()
         self.output_queue = Queue()
         self.__tasks_submitted = 0
         self.__tasks_completed = 0
 
         # create thread pool
-        self.pool : List[threading.Thread] = []
+        self.pool: List[WorkerThread] = []
         for i in range(max_workers):
-            thread = threading.Thread(target=self.__thread_worker, daemon=True)
-            thread.start()
-            self.pool.append(thread)
-
-    def start(self):
-        self.__start_event.set()
+            self.pool.append(WorkerThread(target=self.__thread_worker, auto_start=True))
 
     def done_submitting_tasks(self):
         self.still_submitting = False
@@ -54,9 +57,10 @@ class ThreadPool:
 
     def __thread_worker(self):
         # thread code
-        while not self.__terminated:
-            # wait for start
-            self.__start_event.wait()
+        while self.still_submitting or not self.input_queue.empty():
+            if self.__terminated:
+                # end thread
+                return
             # get next item in queue
             try:
                 task = self.input_queue.get(timeout=10)
@@ -66,20 +70,26 @@ class ThreadPool:
             # process results
             try:
                 # put result into queue
-                self.output_queue.put(task.execute())
+                result = task.execute()
             except Exception:
                 # exception occurred in thread return thread exception
-                self.output_queue.put(ThreadException(traceback.format_exc()))
+                result = ThreadException(traceback.format_exc())
+            self.output_queue.put(result)
             # mark task as done
             self.input_queue.task_done()
+        self.still_processing = False
 
-    def terminate(self):
+    def terminate(self, force: bool = False):
         if self.__terminated:
             raise AlreadyTerminatedException('Cannot terminate a threadpool that is already terminated')
+        if force:
+            for worker in self.pool:
+                # force stop all threads
+                worker.stop()
         self.__terminated = True
 
     def get_results(self, timeout: int = 10, raise_thread_errors: bool = True):
-        while self.still_submitting or self.__tasks_submitted > self.__tasks_completed:
+        while self.still_submitting or self.still_processing or not self.output_queue.empty():
             try:
                 result = self.output_queue.get(timeout=timeout)
                 self.output_queue.task_done()
