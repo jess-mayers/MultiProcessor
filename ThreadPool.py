@@ -28,7 +28,7 @@ class WorkerThread(threading.Thread):
         return self._stop_event.is_set()
 
 class ThreadPool:
-    def __init__(self, max_workers: int = os.cpu_count(), start: bool = False):
+    def __init__(self, max_workers: int = os.cpu_count()):
         # config
         assert max_workers and max_workers > 0, 'max_workers must be greater than 0'
         # run states
