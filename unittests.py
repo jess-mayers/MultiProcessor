@@ -5,17 +5,19 @@ from ThreadPool import ThreadPool
 from collections import defaultdict
 
 
-class EnsureAllProcessed(unittest.TestCase):
+class ThreadPoolUnitTest(unittest.TestCase):
     def setUp(self):
         self.min_int_range = 1
         self.max_int_range = 10
 
         self.tasks_to_submit = 10
+        self.max_workers = os.cpu_count()
 
         self.result_to_count = defaultdict(int)
         self.pool = ThreadPool(max_workers=os.cpu_count())
 
     def test_validate_setup(self):
+        assert self.max_workers > 0
         assert self.min_int_range < self.max_int_range
 
     def test_submit_no_tasks(self):
