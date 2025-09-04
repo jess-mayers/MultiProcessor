@@ -38,8 +38,10 @@ class ThreadPool:
         self.still_processing = True
         self.input_queue = Queue()
         self.output_queue = Queue()
+        # task tracking
         self.__tasks_submitted = 0
         self.__tasks_completed = 0
+        self.__task_errors = 0
 
         # create thread pool
         self.pool: List[WorkerThread] = []
@@ -74,6 +76,7 @@ class ThreadPool:
             except Exception:
                 # exception occurred in thread return thread exception
                 result = ThreadException(traceback.format_exc())
+                self.__task_errors += 1
             self.output_queue.put(result)
             # mark task as done
             self.input_queue.task_done()
