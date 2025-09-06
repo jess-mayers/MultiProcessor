@@ -14,7 +14,7 @@ def mult(a: int, b: int) -> int:
 class ThreadPoolUnitTest(unittest.TestCase):
     def setUp(self):
         # unit test config
-        self.tasks_to_submit = 10
+        self.tasks_to_submit = 25
         self.max_workers = os.cpu_count()
         # thread pool init
         self.pool = ThreadPool(max_workers=os.cpu_count())
