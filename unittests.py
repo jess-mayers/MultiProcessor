@@ -4,11 +4,19 @@ import unittest
 from ThreadPool import ThreadPool
 from collections import defaultdict
 
+# functions to test
+def add(a: int, b: int) -> int:
+    return a + b
 
+def mult(a: int, b: int) -> int:
+    return a * b
+
+# unit test
 class ThreadPoolUnitTest(unittest.TestCase):
     def setUp(self):
         self.min_int_range = 1
         self.max_int_range = 10
+        self.num_tasks = 10
 
         self.tasks_to_submit = 10
         self.max_workers = os.cpu_count()
@@ -25,11 +33,8 @@ class ThreadPoolUnitTest(unittest.TestCase):
         results = list(self.pool.get_results())
         assert len(results) == 0
 
-    def test_basic_addition(self):
-        def add(a: int, b: int) -> int:
-            return a+b
-
-        for i in range(10):
+    def test_addition(self):
+        for i in range(self.num_tasks):
             a = random.randint(self.min_int_range, self.max_int_range)
             b = random.randint(self.min_int_range,self.max_int_range)
             self.pool.submit(add, a=a, b=b)
@@ -40,11 +45,8 @@ class ThreadPoolUnitTest(unittest.TestCase):
         for result, count in self.result_to_count.items():
             assert results.count(result) == count
 
-    def test_basic_multiplication(self):
-        def mult(a: int, b: int) -> int:
-            return a*b
-
-        for i in range(10):
+    def test_multiplication(self):
+        for i in range(self.num_tasks):
             a = random.randint(1, 10)
             b = random.randint(1, 10)
             self.pool.submit(mult, a=a, b=b)
