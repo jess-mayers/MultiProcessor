@@ -1,3 +1,3 @@
 # Thread Pool
 
-Personal implementation of conncurrent.future.ThreadPool
+Personal implementation of concurrent.future.ThreadPool
