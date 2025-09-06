@@ -20,7 +20,7 @@ class ThreadPoolUnitTest(unittest.TestCase):
         self.tasks_to_submit = 10
         # pool config
         self.max_workers = os.cpu_count()
-        # result storage
+        # used for validating the results
         self.result_to_count = defaultdict(int)
         # thread pool init
         self.pool = ThreadPool(max_workers=os.cpu_count())
