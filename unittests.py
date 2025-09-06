@@ -25,6 +25,11 @@ class ThreadPoolUnitTest(unittest.TestCase):
         # thread pool init
         self.pool = ThreadPool(max_workers=os.cpu_count())
 
+    def validate_results(self, results: list):
+        assert len(results) == self.tasks_to_submit
+        for result, count in self.result_to_count.items():
+            assert results.count(result) == count
+
     def test_validate_setup(self):
         assert self.max_workers > 0
         assert self.min_int_range < self.max_int_range
@@ -42,9 +47,7 @@ class ThreadPoolUnitTest(unittest.TestCase):
             self.result_to_count[add(a=a,b=b)] += 1
         self.pool.done_submitting_tasks()
         results = list(self.pool.get_results())
-        assert len(results) == self.tasks_to_submit
-        for result, count in self.result_to_count.items():
-            assert results.count(result) == count
+        self.validate_results(results)
 
     def test_multiplication(self):
         for i in range(self.tasks_to_submit):
@@ -53,6 +56,4 @@ class ThreadPoolUnitTest(unittest.TestCase):
             self.pool.submit(mult, a=a, b=b)
         self.pool.done_submitting_tasks()
         results = list(self.pool.get_results())
-        assert len(results) == self.tasks_to_submit
-        for result, count in self.result_to_count.items():
-            assert results.count(result) == count
+        self.validate_results(results)
