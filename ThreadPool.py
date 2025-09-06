@@ -25,9 +25,11 @@ class ThreadPool:
             self.fn = fn
             self.args = args
             self.kwargs = kwargs
+            self.result = None
 
         def execute(self):
-            return self.fn(*self.args, **self.kwargs)
+            self.result = self.fn(*self.args, **self.kwargs)
+            return self.result
 
     def __init__(self, max_workers: int = os.cpu_count()):
         # config
@@ -72,9 +74,9 @@ class ThreadPool:
                 return
             # get next item in queue
             try:
-                task = self.input_queue.get(timeout=10)
+                task = self.input_queue.get(block=False, timeout=1)
             except Empty:
-                # no task appeared in 10 seconds check to ensure system is fully running
+                # no task appeared in 1 second check to ensure system is fully running
                 continue
             # process results
             try:
@@ -84,7 +86,7 @@ class ThreadPool:
                 # exception occurred in thread return thread exception
                 result = ThreadException(traceback.format_exc())
                 self.__task_errors += 1
-            self.output_queue.put(result)
+            self.output_queue.put(result, block=False)
             # mark task as done
             self.input_queue.task_done()
 
@@ -98,7 +100,7 @@ class ThreadPool:
         self.__terminated = True
 
     def get_results(self, timeout: int = 10, raise_thread_errors: bool = True):
-        while self.still_submitting or self.still_processing or not self.output_queue.empty():
+        while self.still_processing or not self.output_queue.empty():
             try:
                 result = self.output_queue.get(timeout=timeout)
                 self.output_queue.task_done()
@@ -108,3 +110,6 @@ class ThreadPool:
                 self.__tasks_completed += 1
             except Empty:
                 continue
+        # join all threads
+        for thread in self.pool:
+            thread.join()
