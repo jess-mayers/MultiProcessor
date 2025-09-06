@@ -19,7 +19,7 @@ class WorkerThread(threading.Thread):
 
 class ThreadPool:
     class Job:
-        def __init__(self, task_id: uuid.UUID, fn: Callable, *args, **kwargs):
+        def __init__(self, fn: Callable, task_id: uuid.UUID = uuid.uuid4(), *args, **kwargs):
             self.task_id = task_id
             self.fn = fn
             self.args = args
@@ -35,7 +35,6 @@ class ThreadPool:
         self.__terminated = False
         # task handling
         self.still_submitting = True
-        self.still_processing = True
         self.input_queue = Queue()
         self.output_queue = Queue()
         # task tracking
@@ -48,11 +47,19 @@ class ThreadPool:
         for i in range(max_workers):
             self.pool.append(WorkerThread(target=self.__thread_worker, auto_start=True))
 
+    @property
+    def still_processing(self) -> bool:
+        for thread in self.pool:
+            if thread.is_alive():
+                return True
+        return False
+
     def done_submitting_tasks(self):
         self.still_submitting = False
 
     def submit(self, fn: Callable, *args, **kwargs):
-        task = self.Job(fn=fn, *args, **kwargs)
+        task_id = uuid.uuid4()
+        task = self.Job(task_id=task_id, fn=fn, *args, **kwargs)
         self.input_queue.put_nowait(task)
         self.__tasks_submitted += 1
 
@@ -79,7 +86,6 @@ class ThreadPool:
             self.output_queue.put(result)
             # mark task as done
             self.input_queue.task_done()
-        self.still_processing = False
 
     def terminate(self, force: bool = False):
         if self.__terminated:
