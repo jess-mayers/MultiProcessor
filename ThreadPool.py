@@ -14,6 +14,7 @@ class WorkerThread(threading.Thread):
             self.start()
     def stop(self):
         self._stop_event.set()
+
     def is_stopped(self):
         return self._stop_event.is_set()
 
